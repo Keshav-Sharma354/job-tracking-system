@@ -33,6 +33,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # `prisma generate` writes to src/generated/prisma (see prisma/schema.prisma),
 # which the build then imports through the "@/generated/prisma/*" alias.
+# Build-time dummy environment variables satisfy schema validation & Next.js static build checks.
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV SESSION_SECRET="dummy-secret-for-build-stage-only-needs-to-be-32-chars"
+
 RUN npx prisma generate && npm run build
 
 # ---------------------------------------------------------------------------
