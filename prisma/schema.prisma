@@ -1,0 +1,507 @@
+// Job Search CRM — data model
+//
+// Tenancy rule: every table that holds user data carries a `userId` column and a
+// composite index on it. All reads and writes go through repositories that require
+// a `userId` argument, so a missing scope is a type error rather than a leak.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+/// Ordered application pipeline. The declaration order is also the Kanban
+/// column order, so `ORDER BY` is not required to render the board.
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  PHONE_SCREEN
+  INTERVIEW
+  ONSITE
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  TEMPORARY
+}
+
+enum WorkMode {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ContactType {
+  RECRUITER
+  HR
+  HIRING_MANAGER
+  ENGINEER
+  ENGINEERING_MANAGER
+  DIRECTOR
+  REFERRAL
+  OTHER
+}
+
+enum RelationshipStrength {
+  UNKNOWN
+  WEAK
+  MODERATE
+  STRONG
+}
+
+enum EmailDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum EmailStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  REPLIED
+  BOUNCED
+  FAILED
+}
+
+enum EmailCategory {
+  COLD_OUTREACH
+  RECRUITER_REPLY
+  FOLLOW_UP
+  REFERRAL_REQUEST
+  THANK_YOU
+  INTERVIEW_CONFIRMATION
+  NEGOTIATION
+  OTHER
+}
+
+enum DeliveryStatus {
+  SENT
+  FAILED
+}
+
+enum TaskType {
+  FOLLOW_UP
+  INTERVIEW
+  APPLY
+  CALL
+  EMAIL
+  MEETING
+  RESEARCH
+  OTHER
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NoteType {
+  GENERAL
+  INTERVIEW
+  COMPANY_RESEARCH
+  CONVERSATION
+  SCREENING
+  REFERRAL
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+  STATUS_CHANGED
+  EMAIL_SENT
+  EMAIL_REPLIED
+  TASK_COMPLETED
+  NOTE_ADDED
+  IMPORTED
+}
+
+enum ActivityEntity {
+  JOB
+  CONTACT
+  COMPANY
+  EMAIL
+  TEMPLATE
+  TASK
+  NOTE
+  RESUME
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String
+  /// IANA timezone name used to decide when a task is "due today" for this user.
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  companies     Company[]
+  jobs          Job[]
+  contacts      Contact[]
+  resumeVersions ResumeVersion[]
+  emailTemplates EmailTemplate[]
+  emails        Email[]
+  emailDeliveries EmailDelivery[]
+  tasks         Task[]
+  notes         Note[]
+  activities    ActivityEvent[]
+  statusEvents  StatusEvent[]
+}
+
+model Session {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// SHA-256 of the opaque token held in the cookie. The raw token is never stored,
+  /// so a database leak cannot be replayed as a valid session.
+  tokenHash  String   @unique
+  userId     String   @db.Uuid
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Job tracking
+// ---------------------------------------------------------------------------
+
+model Company {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  userId      String   @db.Uuid
+  name        String
+  websiteUrl  String?
+  linkedinUrl String?
+  industry    String?
+  location    String?
+  /// Free-form headcount bucket, e.g. "51-200".
+  size        String?
+  notes       String?
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs     Job[]
+  contacts Contact[]
+
+  // One company row per user: re-applying to the same company updates it rather
+  // than duplicating it.
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model ResumeVersion {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  label     String
+  fileUrl   String?
+  summary   String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+
+  @@unique([userId, label])
+  @@index([userId])
+}
+
+model Job {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  userId        String            @db.Uuid
+  companyId     String            @db.Uuid
+  title         String
+  url           String?
+  location      String?
+  employmentType EmploymentType   @default(FULL_TIME)
+  workMode      WorkMode?
+  status        ApplicationStatus @default(SAVED)
+  priority      Priority          @default(MEDIUM)
+  salaryMin     Int?
+  salaryMax     Int?
+  salaryCurrency String           @default("USD")
+  /// Years or months; the UI normalises with this value.
+  salaryPeriod  String            @default("YEAR")
+  appliedAt     DateTime?
+  deadlineAt    DateTime?
+  closedAt      DateTime?
+  resumeVersionId String?         @db.Uuid
+  /// Contact who referred this application, if any.
+  referralContactId String?        @db.Uuid
+  notes         String?
+  tags          String[]          @default([])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  resumeVersion   ResumeVersion? @relation(fields: [resumeVersionId], references: [id], onDelete: SetNull)
+  referralContact Contact?      @relation("JobReferral", fields: [referralContactId], references: [id], onDelete: SetNull)
+
+  statusEvents StatusEvent[]
+  noteRecords  Note[]
+  emails       Email[]
+  tasks        Task[]
+  activities   ActivityEvent[]
+
+  @@index([userId, status])
+  @@index([userId, deadlineAt])
+  @@index([userId, updatedAt])
+  @@index([companyId])
+}
+
+model StatusEvent {
+  id         String            @id @default(uuid(7)) @db.Uuid
+  userId     String            @db.Uuid
+  jobId      String            @db.Uuid
+  fromStatus ApplicationStatus?
+  toStatus   ApplicationStatus
+  note       String?
+  createdAt  DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Contacts
+// ---------------------------------------------------------------------------
+
+model Contact {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  userId          String               @db.Uuid
+  companyId       String?              @db.Uuid
+  name            String
+  email           String?
+  phone           String?
+  linkedinUrl     String?
+  title           String?
+  contactType     ContactType          @default(OTHER)
+  relationship    RelationshipStrength @default(UNKNOWN)
+  lastContactedAt DateTime?
+  notes           String?
+  tags            String[]             @default([])
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company       Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  emails        Email[]
+  tasks         Task[]
+  noteRecords   Note[]
+  referredJobs  Job[]     @relation("JobReferral")
+  activities    ActivityEvent[]
+
+  // Postgres permits many NULLs in a unique column, so contacts without an email
+  // address are still allowed while duplicates by address are prevented.
+  @@unique([userId, email])
+  @@index([userId])
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Outreach
+// ---------------------------------------------------------------------------
+
+model EmailTemplate {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  userId     String        @db.Uuid
+  name       String
+  category   EmailCategory @default(COLD_OUTREACH)
+  subject    String
+  body       String
+  isFavorite Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Email {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  userId        String         @db.Uuid
+  contactId     String?        @db.Uuid
+  jobId         String?        @db.Uuid
+  templateId    String?        @db.Uuid
+  direction     EmailDirection @default(OUTBOUND)
+  category      EmailCategory  @default(COLD_OUTREACH)
+  status        EmailStatus    @default(DRAFT)
+  toEmail       String?
+  toName        String?
+  fromEmail     String?
+  subject       String
+  body          String
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  repliedAt     DateTime?
+  /// Provider-assigned Message-ID, used to thread replies.
+  messageId     String?
+  /// Set on inbound rows to point at the outbound email being answered.
+  inReplyToId   String?        @db.Uuid
+  errorMessage  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact     Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  job         Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  template    EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  inReplyTo    Email?          @relation("EmailThread", fields: [inReplyToId], references: [id], onDelete: SetNull)
+  replies      Email[]         @relation("EmailThread")
+  deliveries   EmailDelivery[]
+  tasks        Task[]
+  activities   ActivityEvent[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([userId, sentAt])
+  @@index([contactId])
+  @@index([jobId])
+  @@index([inReplyToId])
+}
+
+/// Append-only audit of real delivery attempts. Rows are written by the mail
+/// transport; a draft that was never handed to SMTP never produces a row.
+model EmailDelivery {
+  id                String         @id @default(uuid(7)) @db.Uuid
+  userId            String         @db.Uuid
+  emailId           String         @db.Uuid
+  attempt           Int            @default(1)
+  status            DeliveryStatus
+  provider          String
+  providerMessageId String?
+  errorCode         String?
+  errorMessage      String?
+  createdAt         DateTime       @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email Email @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([emailId, createdAt])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Follow-ups
+// ---------------------------------------------------------------------------
+
+model Task {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  userId      String       @db.Uuid
+  title       String
+  description String?
+  taskType    TaskType     @default(FOLLOW_UP)
+  status      TaskStatus   @default(OPEN)
+  priority    TaskPriority @default(MEDIUM)
+  dueAt       DateTime?
+  completedAt DateTime?
+  jobId       String?      @db.Uuid
+  contactId   String?      @db.Uuid
+  emailId     String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job     Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  email   Email?   @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, dueAt])
+  @@index([userId, dueAt])
+}
+
+// ---------------------------------------------------------------------------
+// Notes & activity
+// ---------------------------------------------------------------------------
+
+model Note {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  body      String
+  noteType  NoteType @default(GENERAL)
+  jobId     String?  @db.Uuid
+  contactId String?  @db.Uuid
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job     Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, noteType])
+  @@index([jobId])
+  @@index([contactId])
+}
+
+model ActivityEvent {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  userId     String          @db.Uuid
+  action     ActivityAction
+  entityType ActivityEntity
+  entityId   String
+  summary    String
+  metadata   Json?
+  jobId      String?         @db.Uuid
+  contactId  String?         @db.Uuid
+  emailId    String?         @db.Uuid
+  createdAt  DateTime        @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job     Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  email   Email?   @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}

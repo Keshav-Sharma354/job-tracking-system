@@ -1,0 +1,111 @@
+# Job Search CRM — full stack.
+#
+#   docker compose up -d --build   build and start app + Postgres + Mailpit
+#   docker compose down            stop
+#   docker compose down -v         stop and delete the database volume
+#
+# After the first start, create a login:
+#   docker compose exec app npx tsx prisma/seed.ts --account you@example.com "Your Name"
+# or load the sample data:
+#   docker compose exec app npx tsx prisma/seed.ts --demo
+#
+# Mailpit is a real SMTP server: it accepts mail on 1025 and shows it at
+# http://localhost:8025. It exists so outbound email can be exercised locally
+# without pretending to contact anyone.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobsearch-crm-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      # Hostnames are compose service names, not localhost: from inside the
+      # container, `localhost` is the app itself.
+      APP_URL: http://localhost:3000
+      DATABASE_URL: postgresql://jts:jts_dev_password@postgres:5432/jobsearch_crm?schema=public
+      # `prisma migrate deploy` in the entrypoint requires a shadow URL to be
+      # absent (it is only needed by `migrate dev`), so it is left unset here.
+      SESSION_SECRET: ${SESSION_SECRET:-compose-only-secret-change-me-to-48-random-characters}
+      SESSION_TTL_DAYS: "${SESSION_TTL_DAYS:-30}"
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-1}"
+      # Mailpit, reachable by service name on the compose network.
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-you@example.com}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Your Name}
+      EMAIL_INBOUND_SECRET: ${EMAIL_INBOUND_SECRET:-}
+    healthcheck:
+      # Duplicated from the Dockerfile so the ordering is explicit here too.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobsearch-crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jts
+      POSTGRES_PASSWORD: jts_dev_password
+      POSTGRES_DB: jobsearch_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jts -d jobsearch_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Disposable shadow database used by `prisma migrate dev` to detect drift.
+  postgres-shadow:
+    image: postgres:16-alpine
+    container_name: jobsearch-crm-postgres-shadow
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jts
+      POSTGRES_PASSWORD: jts_dev_password
+      POSTGRES_DB: jobsearch_crm_shadow
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jts -d jobsearch_crm_shadow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    # Pinned: `latest` (and v1.31.6, pushed 2026-10-15) ships a 0-byte
+    # /mailpit binary and dies with "exec format error". v1.31.5 is the last
+    # good build. Bump once a fixed tag is published.
+    image: axllent/mailpit:v1.31.5
+    container_name: jobsearch-crm-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  postgres_data:
