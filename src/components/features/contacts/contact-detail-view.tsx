@@ -138,6 +138,7 @@ export function ContactDetailView(props: ContactDetailViewProps) {
           <DeleteButton
             entityName={contact.name}
             onDelete={() => deleteContactAction(contact.id)}
+            redirectTo="/contacts"
           />
         </div>
       </div>

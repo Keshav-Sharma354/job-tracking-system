@@ -15,6 +15,7 @@ export function JobFormDialog({
   defaults,
   jobId,
   title,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +24,7 @@ export function JobFormDialog({
   /** Absent for the create form. */
   jobId?: string;
   title?: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
 
@@ -41,7 +43,13 @@ export function JobFormDialog({
       action={async (formData) =>
         jobId ? updateJobAction(jobId, Object.fromEntries(formData)) : createJobAction(Object.fromEntries(formData))
       }
-      onSuccess={() => router.refresh()}
+      onSuccess={() => {
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.refresh();
+        }
+      }}
     >
       <Briefcase className="size-4 text-subtle" aria-hidden />
     </ResourceFormDialog>

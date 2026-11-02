@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { NotebookPen, Pencil, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
-import { Card, CardBody } from "@/components/ui/layout";
+import { Card, CardBody, EmptyState } from "@/components/ui/layout";
 import { ResourceFormDialog } from "@/components/ui/resource-form";
 import { DeleteButton } from "@/components/features/common/delete-button";
 import {
@@ -86,6 +86,37 @@ export function TemplateList({ templates }: { templates: TemplateListItem[] }) {
   const router = useRouter();
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<TemplateListItem | null>(null);
+
+  if (templates.length === 0) {
+    return (
+      <>
+        <Card>
+          <EmptyState
+            icon={<NotebookPen className="size-5" />}
+            title="No templates yet"
+            description="Templates let you write a strong message once and personalise it per recipient with variables like {{firstName}} and {{company}}."
+            action={
+              <Button onClick={() => setCreating(true)}>
+                <NotebookPen />
+                New template
+              </Button>
+            }
+          />
+        </Card>
+
+        <ResourceFormDialog
+          open={creating}
+          onOpenChange={setCreating}
+          title="New template"
+          description="Create a reusable message"
+          submitLabel="Create template"
+          fields={templateFields()}
+          action={createTemplateAction}
+          onSuccess={() => router.refresh()}
+        />
+      </>
+    );
+  }
 
   return (
     <>

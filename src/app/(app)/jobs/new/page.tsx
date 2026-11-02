@@ -1,11 +1,10 @@
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth/session";
 import { listAllCompanies } from "@/server/repo/companies";
 import { listResumeVersions } from "@/server/repo/activity";
 import { listContacts } from "@/server/repo/contacts";
 import { PageHeader } from "@/components/ui/layout";
-import { JobFormDialog } from "@/components/features/jobs/job-form-dialog";
+import { NewJobClient } from "./new-job-client";
 import type { JobFormOptions } from "@/components/features/jobs/job-form-fields";
 
 export const metadata: Metadata = { title: "New application" };
@@ -35,8 +34,7 @@ export default async function NewJobPage() {
         title="Add an application"
         description="Record a role you are applying to, or saving for later."
       />
-      {/* Rendered open; the surrounding page is the dialog's full-screen context. */}
-      <JobFormDialog open onOpenChange={() => redirect("/jobs")} options={options} />
+      <NewJobClient options={options} />
     </div>
   );
 }

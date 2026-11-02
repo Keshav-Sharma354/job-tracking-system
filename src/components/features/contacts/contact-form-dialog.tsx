@@ -14,12 +14,14 @@ export function ContactFormDialog({
   options,
   defaults,
   contactId,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   options: ContactFormOptions;
   defaults?: Parameters<typeof contactFormFields>[0];
   contactId?: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
 
@@ -40,7 +42,13 @@ export function ContactFormDialog({
           ? updateContactAction(contactId, Object.fromEntries(formData))
           : createContactAction(Object.fromEntries(formData))
       }
-      onSuccess={() => router.refresh()}
+      onSuccess={() => {
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.refresh();
+        }
+      }}
     />
   );
 }

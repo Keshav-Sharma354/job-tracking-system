@@ -1,8 +1,9 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon, Sun, Target } from "lucide-react";
+import { Moon, Sun, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { IconTooltip } from "@/components/ui/tooltip";
@@ -32,7 +33,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
           <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
-            <MobileNavTrigger />
+            <MobileNavDrawer pathname={pathname} openTaskCount={openTaskCount} />
             <GlobalSearch />
             <div className="ml-auto flex items-center gap-2">
               <ThemeToggle />
@@ -134,42 +135,123 @@ function NavLink({
 }
 
 /** The sidebar collapses to a slide-over below the `lg` breakpoint. */
-function MobileNavTrigger() {
+function MobileNavDrawer({
+  pathname,
+  openTaskCount,
+}: {
+  pathname: string;
+  openTaskCount: number;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  // Close on route change
+  React.useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Handle escape key
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  // Lock body scroll when mobile nav is open
+  React.useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
   return (
-    <details className="group relative lg:hidden">
-      <summary
-        className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-hover hover:text-foreground [&::-webkit-details-marker]:hidden"
+    <div className="lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
         aria-label="Open navigation"
+        aria-expanded={open}
       >
         <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.75">
           <path d="M3 6h14M3 10h14M3 14h14" strokeLinecap="round" />
         </svg>
-      </summary>
-      <div className="fixed inset-0 z-40 bg-black/45" />
-      <nav className="fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto border-r border-border bg-surface p-3 shadow-xl">
-        <p className="px-2 pb-3 text-sm font-semibold">Job Search CRM</p>
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.title} className="mb-4">
-            <p className="px-2 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
-              {section.title}
-            </p>
-            {section.items.map((item) => (
-              <NavLink key={item.href} item={item} active={isNavItemActive(item, pathnameSafe())} />
-            ))}
-          </div>
-        ))}
-        <div className="border-t border-border pt-2">
-          <NavLink item={SEARCH_NAV} active={isNavItemActive(SEARCH_NAV, pathnameSafe())} />
-          <NavLink item={SETTINGS_NAV} active={isNavItemActive(SETTINGS_NAV, pathnameSafe())} />
-        </div>
-      </nav>
-    </details>
-  );
-}
+      </button>
 
-/** `usePathname` cannot be called conditionally inside `<details>`. */
-function pathnameSafe(): string {
-  return typeof window === "undefined" ? "" : window.location.pathname;
+      {open && (
+        <div className="fixed inset-0 z-40 flex">
+          {/* Backdrop with click-to-close */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer container with scrolling */}
+          <nav
+            className="relative z-50 flex h-full w-72 max-w-[calc(100vw-3rem)] flex-col border-r border-border bg-surface p-4 shadow-2xl"
+            aria-label="Mobile navigation"
+          >
+            <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <Target className="size-4" strokeWidth={2.5} />
+                </span>
+                <span className="text-sm font-semibold tracking-tight text-foreground">
+                  Job Search CRM
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+                aria-label="Close navigation"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain pr-1">
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.title}>
+                  <p className="px-2 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
+                    {section.title}
+                  </p>
+                  <ul className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <li key={item.href} onClick={() => setOpen(false)}>
+                        <NavLink
+                          item={item}
+                          active={isNavItemActive(item, pathname)}
+                          badge={item.href === "/tasks" && openTaskCount > 0 ? openTaskCount : undefined}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <div onClick={() => setOpen(false)}>
+                <NavLink item={SEARCH_NAV} active={isNavItemActive(SEARCH_NAV, pathname)} />
+              </div>
+              <div onClick={() => setOpen(false)}>
+                <NavLink item={SETTINGS_NAV} active={isNavItemActive(SETTINGS_NAV, pathname)} />
+              </div>
+            </div>
+          </nav>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ThemeToggle() {

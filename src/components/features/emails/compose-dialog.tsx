@@ -369,6 +369,13 @@ export function ComposeDialog({
 
         <DialogFooter>
           <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
             variant="secondary"
             onClick={saveDraft}
             loading={pending === "save"}

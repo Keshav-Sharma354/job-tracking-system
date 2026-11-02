@@ -106,6 +106,24 @@ export async function createApplication(
     return fieldError("resumeVersionId", "That resume version no longer exists");
   }
 
+  const duplicateJob = await db.job.findFirst({
+    where: {
+      userId,
+      companyId: resolved,
+      title: { equals: input.title.trim(), mode: "insensitive" },
+      status: {
+        notIn: ["REJECTED", "WITHDRAWN"],
+      },
+    },
+    select: { id: true, title: true, status: true },
+  });
+  if (duplicateJob) {
+    return fieldError(
+      "title",
+      `An active application for "${input.title.trim()}" already exists for this company (${duplicateJob.status.toLowerCase().replace(/_/g, " ")}).`,
+    );
+  }
+
   try {
     const job = await jobRepo.createJob(userId, {
       companyId: resolved,
@@ -165,6 +183,25 @@ export async function updateApplication(
 
   if (typeof resolved !== "string") {
     return fieldError("companyName", resolved.error);
+  }
+
+  const duplicateJob = await db.job.findFirst({
+    where: {
+      userId,
+      companyId: resolved,
+      title: { equals: input.title.trim(), mode: "insensitive" },
+      id: { not: jobId },
+      status: {
+        notIn: ["REJECTED", "WITHDRAWN"],
+      },
+    },
+    select: { id: true, title: true, status: true },
+  });
+  if (duplicateJob) {
+    return fieldError(
+      "title",
+      `Another active application for "${input.title.trim()}" already exists for this company.`,
+    );
   }
 
   try {

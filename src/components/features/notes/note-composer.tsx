@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Send } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
 import { NOTE_TYPE_LABELS } from "@/lib/constants";
@@ -41,7 +42,10 @@ export function NoteComposer({
       });
       if (result.ok) {
         setBody("");
+        toast.success("Note added");
         router.refresh();
+      } else {
+        toast.error(result.error ?? "Could not add note");
       }
     } finally {
       setPending(false);

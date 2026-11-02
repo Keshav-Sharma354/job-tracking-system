@@ -545,6 +545,7 @@ function ResumeDialog({
             onOpenChange(false);
             router.refresh();
           }}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
           <DialogBody className="space-y-4">
             <div className="space-y-1.5">

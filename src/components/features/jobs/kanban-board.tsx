@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useDroppable } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { APPLICATION_STATUSES, STATUS_META } from "@/lib/constants";
 import { moveJobAction } from "@/app/actions/jobs";
@@ -55,8 +54,8 @@ export function KanbanBoard({
   const total = Object.values(columns).reduce((sum, list) => sum + list.length, 0);
 
   return (
-    <div className="overflow-x-auto pb-2">
-      <div className="flex min-w-max gap-3">
+    <div className="overflow-x-auto pb-4 overscroll-x-contain">
+      <div className="flex min-w-max gap-3 pb-2">
         {APPLICATION_STATUSES.map((status) => (
           <Column
             key={status}
@@ -103,28 +102,35 @@ function Column({
   onDrop: (jobId: string) => void;
 }) {
   const meta = STATUS_META[status as keyof typeof STATUS_META];
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const [isOver, setIsOver] = React.useState(false);
 
   return (
     <section
-      ref={setNodeRef}
       onDragOver={(event) => {
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
       }}
+      onDragEnter={() => setIsOver(true)}
+      onDragLeave={(event) => {
+        // Prevent child elements from flickering isOver to false
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setIsOver(false);
+        }
+      }}
       onDrop={(event) => {
         event.preventDefault();
+        setIsOver(false);
         const jobId = event.dataTransfer.getData("text/plain");
         if (jobId) onDrop(jobId);
       }}
       aria-label={`${meta.label} (${jobs.length})`}
-      className={`flex w-[17rem] shrink-0 flex-col rounded-card border transition-colors ${
+      className={`flex w-[18rem] shrink-0 max-h-[calc(100dvh-13rem)] min-h-[28rem] flex-col rounded-card border transition-colors ${
         isOver && dragging
           ? "border-accent bg-accent-subtle/40"
           : "border-border bg-surface-sunken"
       }`}
     >
-      <header className="flex items-center gap-2 px-3 pb-2 pt-3">
+      <header className="shrink-0 flex items-center gap-2 px-3 pb-2 pt-3 border-b border-border/50">
         <span className={`size-2 shrink-0 rounded-full ${meta.accent}`} aria-hidden />
         <h2 className="flex-1 truncate text-sm font-semibold text-foreground">
           {meta.label}
@@ -134,7 +140,7 @@ function Column({
         </span>
       </header>
 
-      <div className="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2">
+      <div className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2 py-2">
         {jobs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-subtle">
             {isOver ? "Drop here" : "Empty"}

@@ -62,23 +62,6 @@ export interface ResourceFormValues {
  * The dialog shell and the form body are separate components so that state
  * resets when the form is remounted, rather than being cleared by an effect.
  */
-export function ResourceFormDialog(props: ResourceFormDialogProps) {
-  return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{props.title}</DialogTitle>
-          {props.description ? (
-            <DialogDescription>{props.description}</DialogDescription>
-          ) : null}
-        </DialogHeader>
-
-        {props.open ? <ResourceFormBody {...props} /> : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export interface ResourceFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -93,6 +76,24 @@ export interface ResourceFormDialogProps {
   onSuccess?: () => void;
   /** Rendered in the footer to the left of the actions. */
   children?: React.ReactNode;
+  dialogClassName?: string;
+}
+
+export function ResourceFormDialog(props: ResourceFormDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className={cn("max-w-2xl", props.dialogClassName)}>
+        <DialogHeader>
+          <DialogTitle>{props.title}</DialogTitle>
+          {props.description ? (
+            <DialogDescription>{props.description}</DialogDescription>
+          ) : null}
+        </DialogHeader>
+
+        {props.open ? <ResourceFormBody {...props} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function ResourceFormBody({
@@ -109,6 +110,16 @@ function ResourceFormBody({
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
 
+  function clearFieldError(name: string) {
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+    if (formError) setFormError(null);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -117,6 +128,27 @@ function ResourceFormBody({
     setPending(true);
     setFieldErrors({});
     setFormError(null);
+
+    // Client-side quick validation for required fields
+    const clientErrors: Record<string, string> = {};
+    for (const field of fields) {
+      if (field.required) {
+        const val = formData.get(field.name);
+        if (!val || (typeof val === "string" && !val.trim())) {
+          clientErrors[field.name] = `${field.label} is required`;
+        }
+      }
+    }
+
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      setPending(false);
+      const first = Object.keys(clientErrors)[0];
+      const el = form.querySelector<HTMLElement>(`[name="${first}"]`);
+      el?.focus();
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
 
     try {
       const result = await action(formData);
@@ -127,8 +159,10 @@ function ResourceFormBody({
         toast.success(result.message ?? "Saved");
         onOpenChange(false);
         onSuccess?.();
-      } else if (result.code === "VALIDATION" && result.fieldErrors) {
+      } else if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
         setFieldErrors(result.fieldErrors);
+        setFormError(result.error);
+        toast.error(result.error);
         // Move focus to the first problem so keyboard users are not stranded.
         const first = Object.keys(result.fieldErrors)[0];
         const el = form.querySelector<HTMLElement>(`[name="${first}"]`);
@@ -147,7 +181,11 @@ function ResourceFormBody({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
       <DialogBody className="space-y-4">
         {extra}
 
@@ -162,7 +200,12 @@ function ResourceFormBody({
 
         <div className="grid grid-cols-12 gap-4">
           {fields.map((field) => (
-            <FieldControl key={field.name} field={field} error={fieldErrors[field.name]} />
+            <FieldControl
+              key={field.name}
+              field={field}
+              error={fieldErrors[field.name]}
+              onClearError={clearFieldError}
+            />
           ))}
         </div>
       </DialogBody>
@@ -199,10 +242,24 @@ const SPAN_CLASS: Record<number, string> = {
   12: "col-span-12",
 };
 
-function FieldControl({ field, error }: { field: FieldSpec; error?: string }) {
+function FieldControl({
+  field,
+  error,
+  onClearError,
+}: {
+  field: FieldSpec;
+  error?: string;
+  onClearError?: (name: string) => void;
+}) {
   const id = `field-${field.name}`;
   const errorId = error ? `${id}-error` : undefined;
   const span = SPAN_CLASS[field.span ?? 6] ?? SPAN_CLASS[12];
+
+  const handleChange = () => {
+    if (error && onClearError) {
+      onClearError(field.name);
+    }
+  };
 
   if (field.type === "checkbox") {
     return (
@@ -211,6 +268,7 @@ function FieldControl({ field, error }: { field: FieldSpec; error?: string }) {
           id={id}
           name={field.name}
           defaultChecked={Boolean(field.defaultValue)}
+          onCheckedChange={handleChange}
         />
         <div className="space-y-0.5">
           <Label htmlFor={id}>{field.label}</Label>
@@ -233,6 +291,7 @@ function FieldControl({ field, error }: { field: FieldSpec; error?: string }) {
           id={id}
           name={field.name}
           defaultValue={(field.defaultValue as string) ?? ""}
+          onChange={handleChange}
           aria-invalid={Boolean(error)}
           aria-describedby={errorId}
           invalid={Boolean(error)}
@@ -251,6 +310,7 @@ function FieldControl({ field, error }: { field: FieldSpec; error?: string }) {
           rows={field.name === "body" ? 12 : 4}
           placeholder={field.placeholder}
           defaultValue={(field.defaultValue as string) ?? ""}
+          onChange={handleChange}
           aria-invalid={Boolean(error)}
           aria-describedby={errorId}
           invalid={Boolean(error)}
@@ -259,7 +319,7 @@ function FieldControl({ field, error }: { field: FieldSpec; error?: string }) {
         <Input
           id={id}
           name={field.name}
-          type={field.type}
+          type={field.type === "tags" ? "text" : field.type}
           placeholder={field.placeholder}
           defaultValue={
             field.type === "datetime-local"
@@ -268,6 +328,7 @@ function FieldControl({ field, error }: { field: FieldSpec; error?: string }) {
                 ? ""
                 : String(field.defaultValue)
           }
+          onChange={handleChange}
           min={field.min}
           max={field.max}
           maxLength={field.maxLength}

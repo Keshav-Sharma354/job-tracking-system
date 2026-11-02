@@ -43,6 +43,7 @@ export async function createContact(
     if (duplicate) {
       return conflict(
         `${duplicate.name} is already using ${input.email}. Edit that contact instead.`,
+        "email",
       );
     }
   }
@@ -61,7 +62,7 @@ export async function createContact(
     return ok(contact, `${contact.name} added`);
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return conflict("That email address is already in your contacts");
+      return conflict("That email address is already in your contacts", "email");
     }
     console.error("createContact failed", error);
     return internal("Could not save this contact");
@@ -84,6 +85,7 @@ export async function updateContact(
     if (duplicate && duplicate.id !== contactId) {
       return conflict(
         `${duplicate.name} is already using ${input.email}. Edit that contact instead.`,
+        "email",
       );
     }
   }

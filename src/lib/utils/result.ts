@@ -76,7 +76,8 @@ export const unauthorized = (message = "You must sign in to continue") =>
 export const notFound = (message = "That record no longer exists") =>
   fail("NOT_FOUND", message);
 
-export const conflict = (message: string) => fail("CONFLICT", message);
+export const conflict = (message: string, field?: string) =>
+  fail("CONFLICT", message, field ? { [field]: message } : undefined);
 
 export const internal = (message = "Something went wrong") =>
   fail("INTERNAL", message);

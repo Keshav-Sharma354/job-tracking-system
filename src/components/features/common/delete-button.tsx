@@ -31,11 +31,13 @@ export function DeleteButton({
   entityName,
   description,
   size = "icon-sm",
+  redirectTo,
 }: {
   onDelete: () => Promise<{ ok: boolean; error?: string; message?: string } | null>;
   entityName: string;
   description?: string;
   size?: "sm" | "icon-sm";
+  redirectTo?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -51,6 +53,9 @@ export function DeleteButton({
     if (result.ok) {
       setOpen(false);
       toast.success(result.message ?? `${entityName} deleted`);
+      if (redirectTo) {
+        router.push(redirectTo);
+      }
       router.refresh();
     } else {
       toast.error(result.error ?? "Could not delete");

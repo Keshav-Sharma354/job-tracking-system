@@ -22,10 +22,10 @@ export function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
+          "fixed left-1/2 top-1/2 z-50 flex max-h-[min(90vh,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
           "flex-col overflow-hidden rounded-card border border-border bg-surface-raised shadow-xl",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
@@ -63,7 +63,13 @@ export function DialogBody({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex-1 overflow-y-auto px-5 py-4", className)} {...props} />
+    <div
+      className={cn(
+        "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 py-4 overscroll-contain",
+        className,
+      )}
+      {...props}
+    />
   );
 }
 
@@ -248,7 +254,7 @@ export function TabsList({
   return (
     <TabsPrimitive.List
       className={cn(
-        "inline-flex items-center gap-1 rounded-xl bg-surface-sunken p-1 ring-1 ring-border",
+        "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl bg-surface-sunken p-1 ring-1 ring-border scrollbar-none",
         className,
       )}
       {...props}
@@ -263,7 +269,7 @@ export function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-muted",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-muted",
         "transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "hover:text-foreground",
         "data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-sm",

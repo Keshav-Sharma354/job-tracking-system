@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createTaskAction } from "@/app/actions/crm";
@@ -42,8 +43,11 @@ export function TaskQuickAdd({
       });
       if (result.ok) {
         setTitle("");
+        toast.success("Follow-up added");
         router.refresh();
         inputRef.current?.focus();
+      } else {
+        toast.error(result.error ?? "Could not add task");
       }
     } finally {
       setPending(false);

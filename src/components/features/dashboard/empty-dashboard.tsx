@@ -30,7 +30,7 @@ const STEPS = [
     body: "Keep company research and notes alongside every role you have applied to.",
   },
   {
-    href: "/emails/new",
+    href: "/emails",
     icon: Mail,
     title: "Reach out",
     body: "Use a template, personalise it, and the CRM will schedule a follow-up if nobody replies.",

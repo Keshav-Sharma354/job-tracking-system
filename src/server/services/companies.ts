@@ -18,7 +18,7 @@ export async function createCompany(
 ): Promise<ActionResult<CompanyItem>> {
   const existing = await companyRepo.findCompanyByName(userId, input.name);
   if (existing) {
-    return conflict(`You already track a company called ${existing.name}`);
+    return conflict(`You already track a company called ${existing.name}`, "name");
   }
 
   try {
@@ -32,7 +32,7 @@ export async function createCompany(
     return ok(company, `${company.name} added`);
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return conflict(`You already track a company called ${input.name}`);
+      return conflict(`You already track a company called ${input.name}`, "name");
     }
     console.error("createCompany failed", error);
     return internal("Could not save this company");
@@ -49,7 +49,7 @@ export async function updateCompany(
 
   const nameClash = await companyRepo.findCompanyByName(userId, input.name);
   if (nameClash && nameClash.id !== companyId) {
-    return conflict(`You already track a company called ${input.name}`);
+    return conflict(`You already track a company called ${input.name}`, "name");
   }
 
   try {

@@ -166,6 +166,7 @@ export function JobDetailView(props: JobDetailViewProps) {
             entityName={job.title}
             description={`Deleting this application also removes its notes, emails and follow-ups. This cannot be undone.`}
             onDelete={() => deleteJobAction(job.id)}
+            redirectTo="/jobs"
           />
         </div>
       </div>

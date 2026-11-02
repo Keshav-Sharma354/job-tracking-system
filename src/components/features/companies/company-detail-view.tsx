@@ -84,6 +84,7 @@ export function CompanyDetailView(props: CompanyDetailViewProps) {
             entityName={company.name}
             description="Deleting a company also deletes its applications and unlinks its contacts. This cannot be undone."
             onDelete={() => deleteCompanyAction(company.id)}
+            redirectTo="/companies"
           />
         </div>
       </div>

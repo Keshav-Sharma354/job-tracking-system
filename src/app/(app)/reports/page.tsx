@@ -174,42 +174,44 @@ export default async function ReportsPage() {
             {performance.length === 0 ? (
               <EmptyState title="No applications yet" />
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-4 py-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
-                      Company
-                    </th>
-                    <th className="px-4 py-2 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
-                      Applied
-                    </th>
-                    <th className="px-4 py-2 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
-                      Active
-                    </th>
-                    <th className="px-4 py-2 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
-                      Offers
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {performance.map((row) => (
-                    <tr key={row.companyId} className="border-b border-border last:border-0">
-                      <td className="px-4 py-2 text-sm text-foreground">
-                        {row.companyName}
-                      </td>
-                      <td className="px-4 py-2 text-right text-sm tabular-nums text-muted">
-                        {row.applications}
-                      </td>
-                      <td className="px-4 py-2 text-right text-sm tabular-nums text-muted">
-                        {row.active}
-                      </td>
-                      <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                        {row.offers}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
+                        Company
+                      </th>
+                      <th className="px-4 py-2 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
+                        Applied
+                      </th>
+                      <th className="px-4 py-2 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
+                        Active
+                      </th>
+                      <th className="px-4 py-2 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle">
+                        Offers
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {performance.map((row) => (
+                      <tr key={row.companyId} className="border-b border-border last:border-0">
+                        <td className="px-4 py-2 text-sm text-foreground">
+                          {row.companyName}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm tabular-nums text-muted">
+                          {row.applications}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm tabular-nums text-muted">
+                          {row.active}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
+                          {row.offers}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardBody>
         </Card>

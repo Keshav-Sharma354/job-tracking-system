@@ -14,12 +14,14 @@ export function TaskFormDialog({
   options,
   defaults,
   taskId,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   options: TaskFormOptions;
   defaults?: Parameters<typeof taskFormFields>[0];
   taskId?: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
 
@@ -38,7 +40,13 @@ export function TaskFormDialog({
           ? updateTaskAction(taskId, Object.fromEntries(formData))
           : createTaskAction(Object.fromEntries(formData))
       }
-      onSuccess={() => router.refresh()}
+      onSuccess={() => {
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.refresh();
+        }
+      }}
     />
   );
 }
